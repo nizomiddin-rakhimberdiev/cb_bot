@@ -84,11 +84,30 @@ class Database:
             """, (name, address, latitude, longitude))
             await db.commit()
 
-    async def get_hospitals(self):
-        """Barcha shifoxonalar ro'yxatini asinxron oladi."""
+    async def all_hospitals_to_excel(self):
+        """Barcha shifoxonalarni olib, Excel faylga asinxron yozadi."""
         async with aiosqlite.connect(self.db_name) as db:
             async with db.execute("SELECT * FROM hospitals") as cursor:
-                return await cursor.fetchall()
+                # Ma'lumotlarni va ustun nomlarini olamiz
+                hospitals_data = await cursor.fetchall()
+                column_names = [description[0] for description in cursor.description]
+
+        if not hospitals_data:
+            print("Shifoxonalar topilmadi.")
+            return
+
+        # Ma'lumotlarni pandas DataFrame ga o'tkazamiz
+        df = pd.DataFrame(hospitals_data, columns=column_names)
+
+        file_name = 'hospitals.xlsx'
+        if os.path.exists(file_name):
+            os.remove(file_name)
+            print("Eski fayl o'chirildi.")
+        
+        # Excel faylga yozish (bu sinxron operatsiya, lekin bu yerda zarari yo'q)
+        df.to_excel(file_name, index=False)
+        print(f"Ma'lumotlar {file_name} fayliga muvaffaqiyatli yozildi.")
+            
     
     async def add_doctor(self, name, specialty, available_times, hospital_id):
         """Shifokorni bazaga asinxron qo'shadi."""

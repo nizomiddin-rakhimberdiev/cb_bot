@@ -3,7 +3,7 @@ import asyncio
 from aiogram.fsm.context import FSMContext
 # O'ZGARISH: Database klassi endi asinxron ishlaydi
 from datebase import Database
-from states import RegisterState
+from states import RegisterState, AddHospitalState, AddDoctorState
 from default_keyboards import phone_btn, location_btn, admin_menu
 from geopy import Nominatim
 import datetime
@@ -80,6 +80,47 @@ async def all_users_handler(message: types.Message):
     users = types.FSInputFile("users.xlsx")
     await message.answer_document(document=users)
 
+@dp.message(F.text=='Add hospital')
+async def add_hospital_start(message: types.Message, state: FSMContext):
+    await message.answer("Iltimos, shifoxona nomini kiriting:")
+    await state.set_state(AddHospitalState.name)
+
+@dp.message(AddHospitalState.name)
+async def hospital_name_handler(message: types.Message, state: FSMContext):
+    name = message.text
+    await state.update_data(name=name)
+    await message.answer("Iltimos, shifoxona manzilini kiriting:", reply_markup=location_btn)
+    await state.set_state(AddHospitalState.address)
+
+
+@dp.message(AddHospitalState.address, F.location)
+async def hospital_address_handler(message: types.Message, state: FSMContext):
+    location = message.location
+    latitude = location.latitude
+    longitude = location.longitude
+    addresss = geolocator.reverse((latitude, longitude), exactly_one=True)
+    if addresss:
+        print(addresss, addresss.address)
+        address = addresss.address
+        hospital_data = await state.get_data()
+        name = hospital_data['name']
+        
+        # O'ZGARISH: db metodi endi 'await' bilan chaqiriladi
+        await db.add_hospital(name, address, latitude, longitude)
+        
+        await message.answer(f"Shifoxona muvaffaqiyatli qo'shildi!\n\nName: {name}\nAddress: {address}")
+        await state.clear()
+    else:
+        print("Manzilni aniqlab bo'lmadi.")
+        await message.answer("Manzilni aniqlab bo'lmadi, iltimos boshqa lokatsiya yuboring.")
+
+@dp.message(F.text=='All hospitals')
+async def all_hospitals_handler(message: types.Message):
+    # O'ZGARISH: db metodi endi 'await' bilan chaqiriladi (nomi ham o'zgargan)
+    await db.all_hospitals_to_excel()
+    
+    hospitals = types.FSInputFile("hospitals.xlsx")
+    await message.answer_document(document=hospitals)
 
 async def main():
     # O'ZGARISH: Jadvallarni yaratish ham endi asinxron
